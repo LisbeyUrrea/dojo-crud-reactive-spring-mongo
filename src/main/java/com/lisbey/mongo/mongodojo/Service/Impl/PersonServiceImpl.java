@@ -22,7 +22,7 @@ public class PersonServiceImpl  implements IPersonService {
     @Override
     public Mono<Person> findById(String id) {
         return personDao.findById(id)
-                .switchIfEmpty(Mono.error(new Exception("Erro: El usuario con el id: "+id+"no existe ")));
+                .switchIfEmpty(Mono.error(new Exception("Erro: El usuario con el id: "+id+" no existe ")));
     }
 
     @Override
@@ -36,6 +36,7 @@ public class PersonServiceImpl  implements IPersonService {
             findPerson.setAge(person.getAge());
             findPerson.setName(person.getName());
             findPerson.setLastName(person.getLastName());
+
             personDao.save(findPerson);
         });
     }
