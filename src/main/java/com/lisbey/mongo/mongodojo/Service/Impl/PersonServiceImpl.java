@@ -53,6 +53,7 @@ public class PersonServiceImpl  implements IPersonService {
     @Override
     public Mono<String> deleteForce(String id) {
     return findById(id)
-                .flatMap(existingPerson -> personDao.delete(existingPerson).then(Mono.just("Usuario eliminado exitosamente")));
+                .flatMap(existingPerson -> personDao.delete(existingPerson)
+                        .then(Mono.just("Usuario eliminado exitosamente")));
     }
 }

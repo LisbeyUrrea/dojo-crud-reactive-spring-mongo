@@ -3,6 +3,7 @@ package com.lisbey.mongo.mongodojo.Controller;
 import com.lisbey.mongo.mongodojo.Document.Person;
 import com.lisbey.mongo.mongodojo.Service.IPersonService;
 import lombok.AllArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -12,12 +13,13 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping(value="person")
+@AllArgsConstructor
 public class PersonController {
 
     @Autowired
     private IPersonService personService;
 
-    @GetMapping
+     @GetMapping
     public Flux<Person> getAll(){
         return personService.findAll();
     }

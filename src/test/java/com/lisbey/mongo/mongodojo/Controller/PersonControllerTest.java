@@ -1,201 +1,262 @@
 package com.lisbey.mongo.mongodojo.Controller;
 
-import com.lisbey.mongo.mongodojo.Dao.PersonDao;
 import com.lisbey.mongo.mongodojo.Document.Person;
 import com.lisbey.mongo.mongodojo.Service.IPersonService;
-import com.lisbey.mongo.mongodojo.Service.Impl.PersonServiceImpl;
 import org.assertj.core.api.Assertions;
+import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
-import static org.mockito.Mockito.times;
+import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
-@WebFluxTest(controllers = PersonController.class)
-@Import(PersonServiceImpl.class)
+
+@RunWith(SpringRunner.class)
 class PersonControllerTest {
-
-    @MockBean
-    PersonDao repository;
-
-    @MockBean
-    PersonController controller;
 
     @Autowired
     private WebTestClient webClient;
 
-    @Test
-    void souldCreatePerson(){
-        Person person = Person.builder().name("Lisbey").lastName("Urrea").age(29).delete(false).build();
+    @Mock
+    IPersonService repository;
 
+    PersonController controller;
 
-        Mockito
-                .when(controller.savePerson(person))
-                .thenReturn(Mono.just(person));
-
-        webClient.post()
-                .uri("/person")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(Mono.just(person), Person.class)
-                .exchange()
-                .expectStatus().isCreated()
-                .expectBodyList(Person.class);
-
-        Mockito.verify(controller, times(1)).savePerson(person);
-
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.initMocks(this);
+        controller = new PersonController(repository);
     }
 
     @Test
-    void souldUpdatePerson(){
+    void methodSavePersonsShouldCreatePerson() {
+        Person person = Person.builder().name("Lisbey").lastName("Urrea").age(29).delete(false).build();
+        Mono<Person> expect = Mono.just(person);
+
+        when(repository.save(person)).thenReturn(expect);
+
+         Mono<Person> result = controller.savePerson(person);
+
+        StepVerifier.create(result)
+                .recordWith(ArrayList::new)
+                .thenConsumeWhile(person1 -> true)
+                .consumeRecordedWith(people -> assertThat(people.isEmpty()).isFalse())
+                .verifyComplete();
+
+        Assert.assertEquals(expect, result);
+        verify(repository, times(1)).save(person);
+
+
+
+
+       /* webClient
+                .post()
+                .uri("/person")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(Mono.just(person), Person.class)
+                .exchange()
+                .expectStatus().isCreated(); */
+    }
+
+
+    @Test
+    void methodEditPersonShouldUpdatePerson(){
         Person person = Person.builder().name("Lisbey").lastName("Urrea").age(29).delete(false).build();
         String id= "5df28176083191355f7b0789";
 
-        Person personUpdated = Person.builder().id(id).name("Diana").lastName("Urrea").age(29).delete(false).build();
+        Mono<Person> expected = Mono.just(Person.builder().id(id).name("Diana").lastName("Urrea").age(29).delete(false).build());
+        when(repository.update(id,person)) .thenReturn((expected));
 
-        Mockito
-                .when(controller.editPerson(id,person))
-                .thenReturn(Mono.just(personUpdated));
+        Mono<Person> result = controller.editPerson(id, person);
 
-        webClient.put()
+        StepVerifier.create(result)
+                .recordWith(ArrayList::new)
+                .thenConsumeWhile(person1 -> true)
+                .consumeRecordedWith(people -> assertThat(people.isEmpty()).isFalse())
+                .verifyComplete();
+
+        Assert.assertEquals(expected, result);
+
+        verify(repository, times(1)).update(id,person);
+
+            /*    webClient.put()
                 .uri("/person/{id}", id)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Mono.just(person), Person.class)
                 .exchange()
-                .expectStatus().isOk()
-                .expectBodyList(Person.class);
-
-        Mockito.verify(controller, times(1)).editPerson(id,person);
+                .expectStatus().is2xxSuccessful()
+                .expectBodyList(Person.class); */
 
     }
 
     @Test
-    void souldReturnErrorOnUpdatePerson(){
+    void methodEditPersonShouldReturnErrorOnUpdatePerson(){
         Person person = Person.builder().name("Lisbey").lastName("Urrea").age(29).delete(false).build();
         String id= "5df28176083191355hyr748d";
 
-        Person personUpdated = Person.builder().id(id).name("Diana").lastName("Urrea").age(29).delete(false).build();
-
-        Mockito
-                .when(controller.editPerson(id,person))
+        when(repository.update(id,person))
                 .thenReturn(Mono.error(new Exception("Erro: El usuario con el id: "+id+" no existe ")));
 
-        webClient.put()
+        Mono<Person> result = controller.editPerson(id, person);
+
+        StepVerifier.create(result)
+                .verifyErrorMessage("Erro: El usuario con el id: "+id+" no existe ");
+
+
+        verify(repository, times(1)).update(id,person);
+
+               /* webClient.put()
                 .uri("/person/{id}", id)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Mono.just(person), Person.class)
                 .exchange()
                 .expectStatus().is5xxServerError()
-                .expectBodyList(Person.class);
-
-        Mockito.verify(controller, times(1)).editPerson(id,person);
+                .expectBodyList(Person.class); */
 
     }
 
     @Test
-    void shouldFindPersonById(){
+    void methodGetByIdShouldFindPersonWhenParamIs5df28176083191355f7b0789(){
         Person person = Person.builder().id("5df28176083191355f7b0789").name("Lisbey").lastName("Urrea").age(29).delete(false).build();
+        Mono<Person> expected = Mono.just(person);
+        String id = "5df28176083191355f7b0789";
+        when(repository.findById(id))
+                .thenReturn(expected);
 
-        Mockito
-                .when(controller.getById("5df28176083191355f7b0789"))
-                .thenReturn(Mono.just(person));
 
+        Mono<Person> result = controller.getById(id);
 
-        webClient.get()
+        StepVerifier.create(result)
+                .recordWith(ArrayList::new)
+                .thenConsumeWhile(person1 -> true)
+                .consumeRecordedWith(people -> assertThat(people.isEmpty()).isFalse())
+                .verifyComplete();
+
+        Assert.assertEquals(expected, result);
+
+        verify(repository, times(1)).findById("5df28176083191355f7b0789");
+
+               /* webClient.get()
                 .uri("/person/{id}",person.getId() )
                 .exchange()
-                .expectStatus().isOk()
-                .expectBodyList(Person.class);
-
-        Mockito.verify(controller, times(1)).getById("5df28176083191355f7b0789");
+                .expectStatus().is2xxSuccessful()
+                .expectBodyList(Person.class); */
     }
 
     @Test
-    void souldRetournErrorSearchingAPerson(){
+    void methodGetByIdShouldReturnMonoError(){
         String id = "5df28176083191355f7b0789";
-        Mockito
-                .when(controller.getById(id))
+       when(repository.findById(id))
                 .thenReturn(Mono.error(new Exception("Erro: El usuario con el id: "+id+" no existe ")));
 
+       Mono<Person> result = controller.getById(id);
 
-        webClient.get()
+        StepVerifier.create(result)
+                .verifyErrorMessage("Erro: El usuario con el id: "+id+" no existe ");
+
+        verify(repository, times(1)).findById("5df28176083191355f7b0789");
+
+
+      /*  webClient.get()
                 .uri("/person/{id}",id )
                 .exchange()
                 .expectStatus().is5xxServerError()
-                .expectBody(Person.class);
-
-        Mockito.verify(controller, times(1)).getById("5df28176083191355f7b0789");
+                .expectBody(Person.class); */
 
     }
 
     @Test
-    void souldFindAllPersons(){
+    void methodGetAllShouldFindAllPersons(){
         List<Person> personList = new ArrayList<>();
-        personList.add(Person.builder().id("5df28176083191355f7b0789").name("Lisbey").lastName("Urrea").age(29).delete(false).build());
-        personList.add(Person.builder().id("5df2817e083191355f7b078a").name("Diana").lastName("Urrea").age(33).delete(false).build());
+        Person person1 = Person.builder().id("5df28176083191355f7b0789").name("Lisbey").lastName("Urrea").age(29).delete(false).build();
+        personList.add(person1);
+        Person person2 = Person.builder().id("5df2817e083191355f7b078a").name("Diana").lastName("Urrea").age(33).delete(false).build();
+        personList.add(person2);
+        Flux<Person> expected = Flux.fromIterable(personList);
+        Mockito.when(repository.findAll()).thenReturn(expected);
 
-        Mockito.when(controller.getAll()).thenReturn(Flux.fromIterable(personList));
+        Flux<Person> result = controller.getAll();
 
-        webClient.get()
+        Assert.assertEquals(expected, result);
+
+        StepVerifier.create(result)
+                .expectNext(person1)
+                .expectNext(person2)
+                .verifyComplete();
+
+
+        verify(repository, times(1)).findAll();
+
+       /* webClient.get()
                 .uri("/person" )
                 .exchange()
-                .expectStatus().isOk()
+                .expectStatus().is2xxSuccessful()
                 .expectBody()
-                .consumeWith(response -> Assertions.assertThat(response.getResponseBody()).isNotNull());
+                .consumeWith(response -> Assertions.assertThat(response.getResponseBody()).isNotNull()); */
 
 
-        Mockito.verify(controller, times(1)).getAll();
+
 
     }
 
     @Test
-    void souldDeletePersonLogically(){
+    void methodDeleteShouldDeletePersonLogically(){
         String id= "5df28176083191355f7b0789";
 
-        Mockito
-                .when(controller.deletePerson(id))
-                .thenReturn(Mono.just("Usuario eliminado exitosamente"));
+        Mono<String> expected = Mono.just("Usuario eliminado exitosamente");
 
+        when(repository.delete(id))
+                .thenReturn(expected);
 
-        webClient.delete()
+        Mono<String> result = repository.delete(id);
+
+        Assert.assertEquals(expected, result);
+
+        verify(repository, times(1)).delete(id);
+
+              /*  webClient.delete()
                 .uri("/person/{id}",id)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(String.class).isEqualTo("Usuario eliminado exitosamente");
-
-        Mockito.verify(controller, times(1)).deletePerson(id);
+                .expectBody(String.class).isEqualTo("Usuario eliminado exitosamente"); */
     }
 
     @Test
-    void souldDeletePersonPhysically(){
+    void methodDeleteForceShouldDeletePersonPhysically(){
         String id= "5df28176083191355f7b0789";
 
-        Mockito
-                .when(controller.deletePersonForce(id))
-                .thenReturn(Mono.just("Usuario eliminado exitosamente"));
+        Mono<String> expected = Mono.just("Usuario eliminado exitosamente");
+
+        when(repository.deleteForce(id))
+                .thenReturn(expected);
+
+        Mono<String> result = repository.deleteForce(id);
+
+        Assert.assertEquals(expected, result);
 
 
-        webClient.delete()
+        verify(repository, times(1)).deleteForce(id);
+
+               /* webClient.delete()
                 .uri("/person/force/{id}",id)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(String.class).isEqualTo("Usuario eliminado exitosamente");
-
-        Mockito.verify(controller, times(1)).deletePersonForce(id);
+                .expectBody(String.class).isEqualTo("Usuario eliminado exitosamente"); */
     }
 
 }
